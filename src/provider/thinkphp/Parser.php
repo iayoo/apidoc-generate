@@ -4,6 +4,7 @@
 namespace Iayoo\ApidocGenerate\provider\thinkphp;
 
 
+use Iayoo\ApidocGenerate\ControllerReflection;
 use think\event\RouteLoaded;
 use think\Request;
 use think\Route;
@@ -13,6 +14,8 @@ class Parser
     protected $routes = [];
 
     protected $route;
+
+    protected $isMultiApp = false;
 
     public function __construct()
     {
@@ -62,6 +65,7 @@ class Parser
         if (!class_exists("think\app\MultiApp")){
             return false;
         }
+        $this->isMultiApp = true;
         $appDir = app()->getRootPath() . 'app' . DIRECTORY_SEPARATOR;
         if ($handle = opendir($appDir)) {
             while (false !== ($file = readdir($handle))) {
@@ -83,6 +87,25 @@ class Parser
     }
 
     /**
+     * 解析路由
+     * @param $route
+     */
+    protected function parserThinkPhpRoute($route){
+        $routeInfo = explode("/",$route);
+        $controller = '';
+        $index = 0;
+        foreach ($routeInfo as $path){
+            $pathInfo = explode('.',$path);
+            if ($index == 0){
+                $controller = implode("\\",$pathInfo);
+            }
+            $index++;
+        }
+        $method = $routeInfo[count($routeInfo)-1];
+        return compact('controller','method');
+    }
+
+    /**
      * 从框架加载路由配置信息
      * @param string $appName
      */
@@ -99,38 +122,52 @@ class Parser
             if (!isset($this->routes[$appName][$group])){
                 $this->routes[$appName][$group] = [];
             }
+            $controlerRef = new ControllerReflection();
+            if ($this->isMultiApp){
+                $loadClass = "app\\{$appName}\\controller\\" ;
+            }
+            $controller = $this->parserThinkPhpRoute($route['route']);
+            $classRes = $controlerRef->setClass($loadClass . $controller['controller']  );
+            if ($classRes !== true){
+                continue;
+            }
+            $controll_comment = $controlerRef->getClassCommentData();
+            $controlerRef->setMethod($controller['method']);
+            $method_comment = $controlerRef->parserMethod();
+            $params = [];
+            if (isset($method_comment['metadata']['validate'])){
+                $params = $this->parserParamsFromValidate($method_comment['metadata']['validate']);
+            }
+            if (isset($method_comment['metadata']) && isset($method_comment['metadata']['title'])){
+                $name = $method_comment['metadata']['title'];
+            }
             $this->routes[$appName][$group][] = [
-                'rule'   => $route['rule'],
-                'method' => $route['method'],
-                'name'   => $route['name'],
-                'route'  => $route['route'],
+                'rule'             => $route['rule'],
+                'method'           => $route['method'],
+                'name'             => $name ?? $route['name'],
+                'route'            => $route['route'],
+                'controll_comment' => $controll_comment,
+                'params'           => $params,
             ];
         }
 
         $this->route->clear();
     }
+
+    /**
+     * 从验证器中获取请求参数
+     * @param $validate string 格式：class.scene
+     */
+    protected function parserParamsFromValidate($validate){
+        $class = explode('.',$validate);
+        if (isset($class[0])){
+            $vClass = new $class[0];
+            return $vClass->scene($class[1])->getSceneRule();
+        }
+    }
     
     public function routeHandle($callback){
         $routes = $this->getRouteList();
         dump($this->routes);
-//        $router = app()->make(Route::class);
-
-//        $postmanItemList = [];
-//        foreach ($routes as $route){
-//            $ruleInfo = $router->getRuleName()->getRule($route['rule']);
-//            $group = "default";
-//            foreach ($ruleInfo as $itemInfo){
-//                $group = $itemInfo->getParent()->getFullName();
-//                if (empty($group)){
-//                    $group = "default";
-//                }
-//            }
-//            if (strstr($route['rule'],"<MISS>")!==false){
-//                continue;
-//            }
-//            if ($callback instanceof \Closure){
-//                $callback($route['rule'],$route['method'],[],$group,'');
-//            }
-//        }
     }
 }

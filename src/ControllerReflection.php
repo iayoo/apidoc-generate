@@ -25,10 +25,14 @@ class ControllerReflection
     /**
      * @param string $class
      */
-    public function setClass(string $class): void
+    public function setClass(string $class): bool
     {
+        if (!class_exists($class)){
+            return false;
+        }
         $this->class = $class;
         $this->init();
+        return true;
     }
 
     protected function init(){

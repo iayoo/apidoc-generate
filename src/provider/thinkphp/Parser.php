@@ -29,10 +29,13 @@ class Parser
     /**
      * 加载路由
      * @access protected
-     * @return void
+     * @return bool
      */
-    protected function loadRoutes(): void
+    protected function loadRoutes(): bool
     {
+        if ($this->loadMutilAppRoutes() === true){
+            return true;
+        }
         // 加载路由定义
         $routePath = app()->getRootPath() . 'route' . DIRECTORY_SEPARATOR;
         if (is_dir($routePath)) {
@@ -40,6 +43,32 @@ class Parser
             foreach ($files as $file) {
                 include $file;
             }
+        }
+    }
+
+    /**
+     * 加载多应用模式下的路由
+     */
+    protected function loadMutilAppRoutes(){
+        if (!class_exists("think\app\MultiApp")){
+            return false;
+        }
+        $appDir = app()->getRootPath() . 'app' . DIRECTORY_SEPARATOR;
+        if ($handle = opendir($appDir)) {
+            while (false !== ($file = readdir($handle))) {
+                if (in_array($file, ['.', '..'])) {
+                    continue;
+                }
+                $routePath = $appDir . $file . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR;
+                if (is_dir($routePath)){
+                    $files = glob($routePath . '*.php');
+                    foreach ($files as $file) {
+                        include $file;
+                    }
+                }
+            }
+            closedir($handle);
+            return true;
         }
     }
     

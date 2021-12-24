@@ -9,11 +9,12 @@ use think\Request;
 
 class Parser
 {
+    /**
+     * 获取路由列表
+     * @return array
+     */
+    public function getRouteList(){
 
-
-    public function route(){
-        /** @var Request $request */
-        $request = app()->make(Request::class);
         /** @var \think\Route $router */
         $router = app()->make(\think\Route::class);
 
@@ -21,7 +22,7 @@ class Parser
             // 判断终端运行,thinkphp 终端模式下是不会加载路由的
             $this->loadRoutes();
         }
-        dump($router->getRuleList());
+        return $router->getRuleList();
     }
 
     /**

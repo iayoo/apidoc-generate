@@ -10,6 +10,15 @@ use think\Route;
 
 class Parser
 {
+    protected $routes = [];
+
+    protected $route;
+
+    public function __construct()
+    {
+        $this->route = app()->make(Route::class);
+    }
+
     /**
      * 获取路由列表
      * @return array
@@ -62,8 +71,9 @@ class Parser
                 $routePath = $appDir . $file . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR;
                 if (is_dir($routePath)){
                     $files = glob($routePath . '*.php');
-                    foreach ($files as $file) {
-                        include $file;
+                    foreach ($files as $routeFile) {
+                        include $routeFile;
+                        $this->getRouteFromFramework($file);
                     }
                 }
             }
@@ -71,28 +81,56 @@ class Parser
             return true;
         }
     }
+
+    /**
+     * 从框架加载路由配置信息
+     * @param string $appName
+     */
+    protected function getRouteFromFramework($appName = 'api'){
+        $routes = $this->route->getRuleName()->getRuleList();
+        $this->routes[$appName] = [];
+
+        foreach ($routes as $route){
+            $ruleInfo = $this->route->getRuleName()->getRule($route['rule']);
+            $group = "default";
+            foreach ($ruleInfo as $itemInfo){
+                $group = empty($itemInfo->getParent()->getFullName())?$group:$itemInfo->getParent()->getFullName();
+            }
+            if (!isset($this->routes[$appName][$group])){
+                $this->routes[$appName][$group] = [];
+            }
+            $this->routes[$appName][$group][] = [
+                'rule'   => $route['rule'],
+                'method' => $route['method'],
+                'name'   => $route['name'],
+                'route'  => $route['route'],
+            ];
+        }
+
+        $this->route->clear();
+    }
     
     public function routeHandle($callback){
         $routes = $this->getRouteList();
-        $router = app()->make(Route::class);
+        dump($this->routes);
+//        $router = app()->make(Route::class);
 
-        $postmanItemList = [];
-        foreach ($routes as $route){
-            $ruleInfo = $router->getRuleName()->getRule($route['rule']);
-            $group = "default";
-            foreach ($ruleInfo as $itemInfo){
-                dump($itemInfo);
-                $group = $itemInfo->getParent()->getFullName();
-                if (empty($group)){
-                    $group = "default";
-                }
-            }
-            if (strstr($route['rule'],"<MISS>")!==false){
-                continue;
-            }
-            if ($callback instanceof \Closure){
-                $callback($route['rule'],$route['method'],[],$group,'');
-            }
-        }
+//        $postmanItemList = [];
+//        foreach ($routes as $route){
+//            $ruleInfo = $router->getRuleName()->getRule($route['rule']);
+//            $group = "default";
+//            foreach ($ruleInfo as $itemInfo){
+//                $group = $itemInfo->getParent()->getFullName();
+//                if (empty($group)){
+//                    $group = "default";
+//                }
+//            }
+//            if (strstr($route['rule'],"<MISS>")!==false){
+//                continue;
+//            }
+//            if ($callback instanceof \Closure){
+//                $callback($route['rule'],$route['method'],[],$group,'');
+//            }
+//        }
     }
 }

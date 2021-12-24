@@ -168,6 +168,14 @@ class Parser
     
     public function routeHandle($callback){
         $routes = $this->getRouteList();
-        dump($this->routes);
+        foreach ($this->routes as $app => $appRoute){
+            foreach ($appRoute as $group => $routes){
+                foreach ($routes as $route){
+                    $route['group'] = $group;
+                    $route['app'] = $appRoute;
+                    $callback($route['rule'],$route['method'],$route['params'],$route);
+                }
+            }
+        }
     }
 }
